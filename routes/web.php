@@ -15,6 +15,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 Route::get('ebay', 'EbayController@index');
+Route::get('ebay/add', 'EbayController@add');
 Auth::routes();
 
 Route::get('/home', 'HomeController@index')->name('home');

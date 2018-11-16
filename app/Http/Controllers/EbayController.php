@@ -14,6 +14,11 @@ class EbayController extends Controller
 {
     public function index()
     {
+        return Seller::all()->where('positive_feedback_percent', '>', 99.5);
+    }
+
+    public function add()
+    {
 
      /*   $itemId = $item->itemId;                                    //  Идентификатор Продукта
         $title = $item->title;                                      //  Название Продукта
@@ -79,7 +84,40 @@ class EbayController extends Controller
 
         $client = new Client();
         $response = $client->get('http://svcs.ebay.com/services/search/FindingService/v1?OPERATION-NAME=findItemsAdvanced&SERVICE-VERSION=1.13.0&SECURITY-APPNAME=DmitriyS-SDKOA-PRD-769dbd521-3986ee4d&RESPONSE-DATA-FORMAT=json&REST-PAYLOAD=true&paginationInput.entriesPerPage=100&paginationInput.pageNumber=1&keywords=toy&itemFilter(0).name=MinPrice&itemFilter(0).value=10.00&itemFilter(0).paramName=Currency&itemFilter(0).paramValue=USD&itemFilter(1).name=MaxPrice&itemFilter(1).value=60.00&itemFilter(1).paramName=Currency&itemFilter(1).paramValue=USD&itemFilter(2).name=FreeShippingOnly&itemFilter(2).value=true&itemFilter(3).name=Condition&itemFilter(3).value=1000&itemFilter(4).name=MinQuantity&itemFilter(4).value=3&itemFilter(5).name=FeedbackScoreMin&itemFilter(5).value=300&itemFilter(6).name=positiveFeedbackPercent&itemFilter(6).value=99.6&itemFilter(7).name=ReturnsAcceptedOnly&itemFilter(7).value=true&outputSelector=SellerInfo');
-
+        /*$url = 'http://svcs.ebay.com/services/search/FindingService/v1';
+        $response = $client->get($url, array(), array(
+            'query' => array(
+                'OPERATION-NAME' => 'findItemsAdvanced',
+                'SERVICE-VERSION' => '1.13.0',
+                'SECURITY-APPNAME' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
+                'RESPONSE-DATA-FORMAT' => 'json',
+                'REST-PAYLOAD' => 'true',
+                'paginationInput.entriesPerPage' => '100',
+                'paginationInput.pageNumber' => '1',
+                'keywords' => 'toy',
+                'itemFilter(0).name' => 'MinPrice',
+                'itemFilter(0).value' => '10.00',
+                'itemFilter(0).paramName' => 'Currency',
+                'itemFilter(0).paramValue' => 'USD',
+                'itemFilter(1).name' => 'MaxPrice',
+                'itemFilter(1).value' => '60.00',
+                'itemFilter(1).paramName' => 'Currency',
+                'itemFilter(1).paramValue' => 'USD',
+                'itemFilter(2).name' => 'FreeShippingOnly',
+                'itemFilter(2).value' => 'true',
+                'itemFilter(3).name' => 'Condition',
+                'itemFilter(3).value' => '1000',
+                'itemFilter(4).name' => 'MinQuantity',
+                'itemFilter(4).value' => '3',
+                'itemFilter(5).name' => 'FeedbackScoreMin',
+                'itemFilter(5).value' => '300',
+                'itemFilter(6).name' => 'positiveFeedbackPercent',
+                'itemFilter(6).value' => '99.6',
+                'itemFilter(7).name' => 'ReturnsAcceptedOnly',
+                'itemFilter(7).value' => 'true',
+                'outputSelector' => 'SellerInfo',
+                )
+        ));*/
         $result = $response->getBody()->getContents();
 
         $result = json_decode($result);
