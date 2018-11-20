@@ -20,6 +20,8 @@ class CreateSellersTable extends Migration
             $table->double('positive_feedback_percent');
             $table->string('feedback_rating_star');
             $table->string('top_rated_seller');
+            $table->string('country')->nullable();
+            $table->timestamp('date_reg')->nullable();
             $table->timestamps();
         });
     }
