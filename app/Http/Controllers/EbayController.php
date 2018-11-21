@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\GetCustomerInfo;
 use App\Photo;
 use App\Product;
 use App\Seller;
@@ -22,6 +23,8 @@ class EbayController extends Controller
 
     public function add()
     {
+        $start = microtime(true);
+
         $client = new Client();
         $url = 'http://svcs.ebay.com/services/search/FindingService/v1';
         $response = $client->get($url, array(
@@ -39,7 +42,7 @@ class EbayController extends Controller
                 'itemFilter(0).paramName' => 'Currency',
                 'itemFilter(0).paramValue' => 'USD',
                 'itemFilter(1).name' => 'MaxPrice',
-                'itemFilter(1).value' => '60.00',
+                'itemFilter(1).value' => '70.00',
                 'itemFilter(1).paramName' => 'Currency',
                 'itemFilter(1).paramValue' => 'USD',
                 'itemFilter(2).name' => 'FreeShippingOnly',
@@ -51,7 +54,7 @@ class EbayController extends Controller
                 'itemFilter(5).name' => 'FeedbackScoreMin',
                 'itemFilter(5).value' => '300',
                 'itemFilter(6).name' => 'positiveFeedbackPercent',
-                'itemFilter(6).value' => '99.6',
+                'itemFilter(6).value' => '99.0',
                 'itemFilter(7).name' => 'ReturnsAcceptedOnly',
                 'itemFilter(7).value' => 'true',
                 'outputSelector(0)' => 'SellerInfo',
@@ -68,20 +71,40 @@ class EbayController extends Controller
            $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
            $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->get();
            if(count($seller)) {
-               continue;
+               $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
+           } else {
+               $seller = new Seller();
            }
 
-          /* $seller = new Seller();
            $seller->user_name = $sellerInfo->sellerUserName[0];
            $seller->feedback_score = $sellerInfo->feedbackScore[0];
            $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
            $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
            $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
-           $seller->save();*/
 
-           $product = new Product();
+           /* $html = file_get_contents('https://www.ebay.com/usr/'.$seller->user_name);
+            $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$seller->user_name);
+            $crawler->addHtmlContent($html, 'UTF-8');
+            $date_reg = $crawler->filter('#member_info .info')->text();
+            $country = $crawler->filter('#member_info .mem_loc')->text();
+
+           $seller->country = $country;
+           $seller->date_reg = \Carbon\Carbon::parse($date_reg);*/
+           $seller->save();
+           $seller->refresh();
+
+            GetCustomerInfo::dispatch('name');
+
+            $product = Product::where('item_id', $item->itemId[0])->get();
+            if(count($product)) {
+                $product = Product::where('item_id', $item->itemId[0])->first();
+                echo $item->itemId[0]."<br/>";
+            } else {
+                $product = new Product();
+            }
+
            $product->item_id = $item->itemId[0];
-           $product->seller_id = 1;
+           $product->seller_id = $seller->id;
            $product->title = $item->title[0];
            $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
            $product->global_id = $item->globalId[0];
@@ -94,30 +117,31 @@ class EbayController extends Controller
            $product->save();
            $product->refresh();
 
-           $photo = new Photo();
+            $photo = Photo::where('product_id', $product->id)->get();
+            if(count($photo)) {
+                $photo = Photo::where('product_id', $product->id)->first();
+            } else {
+                $photo = new Photo();
+            }
            $photo->product_id = $product->id;
            $photo->large = $item->galleryInfoContainer[0]->galleryURL[0]->__value__;
            $photo->medium = $item->galleryInfoContainer[0]->galleryURL[1]->__value__;
            $photo->small = $item->galleryInfoContainer[0]->galleryURL[2]->__value__;
            $photo->save();
-           //print_r($product);
            exit;
-
         }
+        echo 'Время выполнения скрипта: '.round(microtime(true) - $start, 4).' сек.';
     }
 
-    public function getUserInfo($seller)
+    public function getUserInfo()
     {
-        $client = new Client();
-        $response = $client->get('https://www.ebay.com/usr/ddarlingshop');
-        $html = $response->getBody()->getContents();
-
-        $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$seller);
+        $html = file_get_contents('https://www.ebay.com/usr/bulkshopusacom');
+        $crawler = new Crawler(null, 'https://www.ebay.com/usr/bulkshopusacom');
 
         $crawler->addHtmlContent($html, 'UTF-8');
 
-        // Get title text.
         $date_reg = $crawler->filter('#member_info .info')->text();
         $country = $crawler->filter('#member_info .mem_loc')->text();
+        print_r($date_reg."<br/>".$country);
     }
 }

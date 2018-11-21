@@ -12,6 +12,7 @@
 */
 
 Route::get('/', function () {
+    App\Jobs\GetCustomerInfo::dispatch('name');
     return view('welcome');
 });
 Route::get('ebay', 'EbayController@index');
