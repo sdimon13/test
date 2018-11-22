@@ -8,12 +8,14 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\DomCrawler\Crawler;
 
 class GetCustomerInfo implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public $tries = 3;
     protected $user_name;
     /**
      * Create a new job instance.
@@ -32,7 +34,7 @@ class GetCustomerInfo implements ShouldQueue
      */
     public function handle()
     {
-        info($this->name);
+        Log::info( $this->user_name);
         $html = file_get_contents('https://www.ebay.com/usr/'.$this->user_name);
         $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$this->user_name);
         $crawler->addHtmlContent($html, 'UTF-8');

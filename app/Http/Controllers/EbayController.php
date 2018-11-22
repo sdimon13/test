@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\GetCustomerInfo;
 use App\Photo;
 use App\Product;
 use App\Seller;
@@ -84,7 +83,7 @@ class EbayController extends Controller
            $seller->save();
            $seller->refresh();
 
-            dispatch(new \App\Jobs\GetCustomerInfo($seller->id));
+            dispatch(new \App\Jobs\GetCustomerInfo($seller->user_name));
 
             $product = Product::where('item_id', $item->itemId[0])->get();
             if(count($product)) {
