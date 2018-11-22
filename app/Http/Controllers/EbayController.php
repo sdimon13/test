@@ -81,19 +81,10 @@ class EbayController extends Controller
            $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
            $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
            $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
-
-           /* $html = file_get_contents('https://www.ebay.com/usr/'.$seller->user_name);
-            $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$seller->user_name);
-            $crawler->addHtmlContent($html, 'UTF-8');
-            $date_reg = $crawler->filter('#member_info .info')->text();
-            $country = $crawler->filter('#member_info .mem_loc')->text();
-
-           $seller->country = $country;
-           $seller->date_reg = \Carbon\Carbon::parse($date_reg);*/
            $seller->save();
            $seller->refresh();
 
-            GetCustomerInfo::dispatch('name');
+            dispatch(new \App\Jobs\GetCustomerInfo($seller->id));
 
             $product = Product::where('item_id', $item->itemId[0])->get();
             if(count($product)) {
@@ -128,7 +119,6 @@ class EbayController extends Controller
            $photo->medium = $item->galleryInfoContainer[0]->galleryURL[1]->__value__;
            $photo->small = $item->galleryInfoContainer[0]->galleryURL[2]->__value__;
            $photo->save();
-           exit;
         }
         echo 'Время выполнения скрипта: '.round(microtime(true) - $start, 4).' сек.';
     }

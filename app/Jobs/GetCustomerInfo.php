@@ -14,7 +14,7 @@ class GetCustomerInfo implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $name;
+    protected $user_name;
     /**
      * Create a new job instance.
      *
@@ -22,7 +22,7 @@ class GetCustomerInfo implements ShouldQueue
      */
     public function __construct($name)
     {
-        $this->name = $name;
+        $this->user_name = $name;
     }
 
     /**
@@ -33,14 +33,15 @@ class GetCustomerInfo implements ShouldQueue
     public function handle()
     {
         info($this->name);
-        /*$html = file_get_contents('https://www.ebay.com/usr/'.$seller->user_name);
-        $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$seller->user_name);
+        $html = file_get_contents('https://www.ebay.com/usr/'.$this->user_name);
+        $crawler = new Crawler(null, 'https://www.ebay.com/usr/'.$this->user_name);
         $crawler->addHtmlContent($html, 'UTF-8');
         $date_reg = $crawler->filter('#member_info .info')->text();
         $country = $crawler->filter('#member_info .mem_loc')->text();
 
+        $seller = Seller::where('user_name', $this->user_name)->first();
         $seller->country = $country;
         $seller->date_reg = \Carbon\Carbon::parse($date_reg);
-        $seller->save();*/
+        $seller->save();
     }
 }
