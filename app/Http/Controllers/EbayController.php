@@ -11,7 +11,6 @@ use GuzzleHttp\Exception\RequestException;
 use Guzzle\Http\Exception\ClientErrorResponseException;
 use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\BadResponseException;
-use Symfony\Component\DomCrawler\Crawler;
 
 class EbayController extends Controller
 {
@@ -70,48 +69,57 @@ class EbayController extends Controller
            $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
            $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->get();
            if(count($seller)) {
-               $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
+               $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])
+                   ->update([
+                       'feedback_score' => $sellerInfo->feedbackScore[0],
+                       'positive_feedback_percent' => $sellerInfo->positiveFeedbackPercent[0],
+                       'top_rated_seller' => $sellerInfo->topRatedSeller[0],
+                   ]);
            } else {
                $seller = new Seller();
+               $seller->user_name = $sellerInfo->sellerUserName[0];
+               $seller->feedback_score = $sellerInfo->feedbackScore[0];
+               $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
+               $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
+               $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
+               $seller->save();
+               dispatch(new \App\Jobs\GetCustomerInfo($seller->user_name));
            }
-
-           $seller->user_name = $sellerInfo->sellerUserName[0];
-           $seller->feedback_score = $sellerInfo->feedbackScore[0];
-           $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
-           $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
-           $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
-           $seller->save();
-           $seller->refresh();
-
-            dispatch(new \App\Jobs\GetCustomerInfo($seller->user_name));
 
             $product = Product::where('item_id', $item->itemId[0])->get();
             if(count($product)) {
-                $product = Product::where('item_id', $item->itemId[0])->first();
-                echo $item->itemId[0]."<br/>";
+                $product = Product::where('item_id', $item->itemId[0])->update([
+                    'title' => $item->title[0],
+                    'price' => $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__,
+                    'category_id' => $item->primaryCategory[0]->categoryId[0],
+                    'item_url' => $item->viewItemURL[0],
+                    'shipping_cost' => $item->shippingInfo[0]->shippingServiceCost[0]->__value__,
+                ]);
             } else {
                 $product = new Product();
+                $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
+                $product->item_id = $item->itemId[0];
+                $product->seller_id = $seller->id;
+                $product->title = $item->title[0];
+                $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
+                $product->global_id = $item->globalId[0];
+                $product->category_id = $item->primaryCategory[0]->categoryId[0];
+                $product->item_url = $item->viewItemURL[0];
+                $product->location = $item->location[0];
+                $product->country = $item->country[0];
+                $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
+                $product->condition_name = $item->condition[0]->conditionDisplayName[0];
+                $product->save();
+                $product->refresh();
             }
 
-           $product->item_id = $item->itemId[0];
-           $product->seller_id = $seller->id;
-           $product->title = $item->title[0];
-           $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
-           $product->global_id = $item->globalId[0];
-           $product->category_id = $item->primaryCategory[0]->categoryId[0];
-           $product->item_url = $item->viewItemURL[0];
-           $product->location = $item->location[0];
-           $product->country = $item->country[0];
-           $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
-           $product->condition_name = $item->condition[0]->conditionDisplayName[0];
-           $product->save();
-           $product->refresh();
-
+            $product = Product::where('item_id', $item->itemId[0])->first();
             $photo = Photo::where('product_id', $product->id)->get();
             if(count($photo)) {
                 $photo = Photo::where('product_id', $product->id)->first();
             } else {
                 $photo = new Photo();
+
             }
            $photo->product_id = $product->id;
            $photo->large = $item->galleryInfoContainer[0]->galleryURL[0]->__value__;

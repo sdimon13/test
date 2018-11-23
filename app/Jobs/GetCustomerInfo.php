@@ -41,9 +41,10 @@ class GetCustomerInfo implements ShouldQueue
         $date_reg = $crawler->filter('#member_info .info')->text();
         $country = $crawler->filter('#member_info .mem_loc')->text();
 
-        $seller = Seller::where('user_name', $this->user_name)->first();
-        $seller->country = $country;
-        $seller->date_reg = \Carbon\Carbon::parse($date_reg);
-        $seller->save();
+        $seller = Seller::where('user_name', $this->user_name)
+            ->update([
+                'country' => $country,
+                'date_reg' => \Carbon\Carbon::parse($date_reg),
+            ]);
     }
 }
