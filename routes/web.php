@@ -15,7 +15,7 @@ Route::get('/', function () {
     return view('welcome');
 });
 Route::get('ebay', 'EbayController@index');
-Route::get('ebay/add', 'EbayController@add');
+Route::get('ebay/add', 'EbayController@findItemsAdvanced');
 Route::get('ebay/get', 'EbayController@getUserInfo');
 Auth::routes();
 

@@ -1,10 +1,13 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Jobs\Ebay;
 
-use App\Photo;
-use App\Product;
-use App\Seller;
+use Illuminate\Bus\Queueable;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -12,32 +15,32 @@ use Guzzle\Http\Exception\ClientErrorResponseException;
 use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\BadResponseException;
 
-class EbayController extends Controller
+class EbayFindItemsAdvanced implements ShouldQueue
 {
-    public function index()
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $tries = 2;
+    protected $keywords;
+    protected $pageNumber;
+    /**
+     * Create a new job instance.
+     *
+     * @return void
+     */
+    public function __construct($keywords, $pageNumber)
     {
-        return Seller::all()->where('positive_feedback_percent', '>', 99.5);
+        $this->keywords = $keywords;
+        $this->pageNumber = $pageNumber;
     }
 
-    public function add()
+    /**
+     * Execute the job.
+     *
+     * @return void
+     */
+    public function handle()
     {
-        $start = microtime(true);
-
-        for($i=1; $i<=100; $i++) {
-            $totalPages = $this->addProducts($i);
-            if($totalPages == $i) {
-                break;
-            }
-        }
-
-        echo 'Время выполнения скрипта: '.round(microtime(true) - $start, 4).' сек.';
-    }
-
-    public function findItemsAdvanced()
-    {
-        $keywords = 'toy';
-        $pageNumber = 1;
-
+        Log::info('Keyword: '.$this->keywords.' PageNumber: '.$this->pageNumber);
         $client = new Client();
         $url = 'http://svcs.ebay.com/services/search/FindingService/v1';
         $response = $client->get($url, array(
@@ -48,8 +51,8 @@ class EbayController extends Controller
                 'RESPONSE-DATA-FORMAT' => 'json',
                 'REST-PAYLOAD' => 'true',
                 'paginationInput.entriesPerPage' => '100',
-                'paginationInput.pageNumber' => $pageNumber,
-                'keywords' => $keywords,
+                'paginationInput.pageNumber' => $this->pageNumber,
+                'keywords' => $this->keywords,
                 'itemFilter(0).name' => 'MinPrice',
                 'itemFilter(0).value' => '10.00',
                 'itemFilter(0).paramName' => 'Currency',
@@ -72,7 +75,7 @@ class EbayController extends Controller
                 'itemFilter(7).value' => 'true',
                 'outputSelector(0)' => 'SellerInfo',
                 'outputSelector(1)' => 'GalleryInfo',
-                )
+            )
         ));
         $result = $response->getBody()->getContents();
 
@@ -84,29 +87,30 @@ class EbayController extends Controller
         $totalPages = $paginationOutput->totalPages[0]; //Всего страниц
         $totalEntries = $paginationOutput->totalEntries[0]; // Всего товаров
         if ($pageNumber < $totalPages) {
-            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($keywords, $pageNumber+1));
+            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($this->keywords, $this->pageNumber+1));
         }
+
         foreach($ar->searchResult[0]->item as $item) {
 
-           $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
-           $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->get();
-           if(count($seller)) {
-               $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])
-                   ->update([
-                       'feedback_score' => $sellerInfo->feedbackScore[0],
-                       'positive_feedback_percent' => $sellerInfo->positiveFeedbackPercent[0],
-                       'top_rated_seller' => $sellerInfo->topRatedSeller[0],
-                   ]);
-           } else {
-               $seller = new Seller();
-               $seller->user_name = $sellerInfo->sellerUserName[0];
-               $seller->feedback_score = $sellerInfo->feedbackScore[0];
-               $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
-               $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
-               $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
-               $seller->save();
-               dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name));
-           }
+            $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
+            $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->get();
+            if (count($seller)) {
+                $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])
+                    ->update([
+                        'feedback_score' => $sellerInfo->feedbackScore[0],
+                        'positive_feedback_percent' => $sellerInfo->positiveFeedbackPercent[0],
+                        'top_rated_seller' => $sellerInfo->topRatedSeller[0],
+                    ]);
+            } else {
+                $seller = new Seller();
+                $seller->user_name = $sellerInfo->sellerUserName[0];
+                $seller->feedback_score = $sellerInfo->feedbackScore[0];
+                $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
+                $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
+                $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
+                $seller->save();
+                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name));
+            }
 
             $product = Product::where('item_id', $item->itemId[0])->get();
             if(count($product)) {
@@ -142,24 +146,11 @@ class EbayController extends Controller
             } else {
                 $photo = new Photo();
             }
-           $photo->product_id = $product->id;
-           $photo->large = $item->galleryInfoContainer[0]->galleryURL[0]->__value__;
-           $photo->medium = $item->galleryInfoContainer[0]->galleryURL[1]->__value__;
-           $photo->small = $item->galleryInfoContainer[0]->galleryURL[2]->__value__;
-           $photo->save();
+            $photo->product_id = $product->id;
+            $photo->large = $item->galleryInfoContainer[0]->galleryURL[0]->__value__;
+            $photo->medium = $item->galleryInfoContainer[0]->galleryURL[1]->__value__;
+            $photo->small = $item->galleryInfoContainer[0]->galleryURL[2]->__value__;
+            $photo->save();
         }
-        print_r($totalPages);
-    }
-
-    public function getUserInfo()
-    {
-        $html = file_get_contents('https://www.ebay.com/usr/bulkshopusacom');
-        $crawler = new Crawler(null, 'https://www.ebay.com/usr/bulkshopusacom');
-
-        $crawler->addHtmlContent($html, 'UTF-8');
-
-        $date_reg = $crawler->filter('#member_info .info')->text();
-        $country = $crawler->filter('#member_info .mem_loc')->text();
-        print_r($date_reg."<br/>".$country);
     }
 }
