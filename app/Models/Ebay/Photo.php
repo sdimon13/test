@@ -1,10 +1,10 @@
 <?php
 
-namespace App;
+namespace App\Models\Ebay;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Product extends Model
+class Photo extends Model
 {
     //
 }

@@ -2,7 +2,7 @@
 
 namespace App\Jobs\Ebay;
 
-use App\Seller;
+use App\Models\Ebay\Seller;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;

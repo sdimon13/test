@@ -14,9 +14,10 @@
 Route::get('/', function () {
     return view('welcome');
 });
-Route::get('ebay', 'EbayController@index');
-Route::get('ebay/add', 'EbayController@findItemsAdvanced');
-Route::get('ebay/get', 'EbayController@getUserInfo');
+Route::get('ebay', 'Ebay\EbayController@index');
+Route::get('ebay/add', 'Ebay\EbayController@findItemsAdvanced');
+Route::get('ebay/sellers', 'Ebay\EbayController@sellers');
+Route::get('ebay/products', 'Ebay\EbayController@products');
 Auth::routes();
 
 Route::get('/home', 'HomeController@index')->name('home');

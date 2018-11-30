@@ -2,6 +2,9 @@
 
 namespace App\Jobs\Ebay;
 
+use App\Models\Ebay\Photo;
+use App\Models\Ebay\Product;
+use App\Models\Ebay\Seller;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Queue\InteractsWithQueue;
@@ -112,9 +115,20 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name));
             }
 
-            $product = Product::where('item_id', $item->itemId[0])->get();
+            if ('true' == $item->isMultiVariationListing[0]){
+                $child = explode('?var=', $item->viewItemURL[0]);
+                if ($child[1] == '0') {
+                    $child = null;
+                    $itemId = $item->itemId[0];
+                } else {
+                    $itemId = $child[1];
+                }
+            } else {
+                $itemId = $item->itemId[0];
+            }
+            $product = Product::where('item_id', $itemId)->get();
             if(count($product)) {
-                $product = Product::where('item_id', $item->itemId[0])->update([
+                $product = Product::where('item_id', $itemId)->update([
                     'title' => $item->title[0],
                     'price' => $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__,
                     'category_id' => $item->primaryCategory[0]->categoryId[0],
@@ -124,7 +138,10 @@ class EbayFindItemsAdvanced implements ShouldQueue
             } else {
                 $product = new Product();
                 $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
-                $product->item_id = $item->itemId[0];
+                $product->item_id = $itemId;
+                if (isset($child[1])) {
+                    $product->parent_id = $item->itemId[0];
+                }
                 $product->seller_id = $seller->id;
                 $product->title = $item->title[0];
                 $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
@@ -139,7 +156,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $product->refresh();
             }
 
-            $product = Product::where('item_id', $item->itemId[0])->first();
+            $product = Product::where('item_id', $itemId)->first();
             $photo = Photo::where('product_id', $product->id)->get();
             if(count($photo)) {
                 $photo = Photo::where('product_id', $product->id)->first();
