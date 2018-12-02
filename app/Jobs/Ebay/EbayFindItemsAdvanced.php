@@ -154,6 +154,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $product->condition_name = $item->condition[0]->conditionDisplayName[0];
                 $product->save();
                 $product->refresh();
+                dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->item_id));
             }
 
             $product = Product::where('item_id', $itemId)->first();

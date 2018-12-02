@@ -1,41 +1,44 @@
 <?php
 
-namespace App\Http\Controllers\Ebay;
+namespace App\Jobs\Ebay;
 
-
-use App\Http\Controllers\Controller;
-use App\Models\Ebay\Product;
-use App\Models\Ebay\Seller;
 use App\Models\Ebay\Shipping;
 use GuzzleHttp\Client;
+use Illuminate\Bus\Queueable;
+use Illuminate\Queue\SerializesModels;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Support\Facades\Log;
 
-class EbayController extends Controller
+class EbayGetShippingCosts implements ShouldQueue
 {
-    public function index()
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $tries = 2;
+    protected $id;
+    protected $itemId;
+
+    /**
+     * Create a new job instance.
+     *
+     * @return void
+     */
+    public function __construct($id, $itemId)
     {
-       //
+        $this->id = $id;
+        $this->itemId = $itemId;
     }
 
-    public function findItemsAdvanced()
+    /**
+     * Execute the job.
+     *
+     * @return void
+     */
+    public function handle()
     {
-        $keywords = 'toy';
-        $pageNumber = 1;
+        Log::info('Item: '.$this->itemId);
 
-        dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($keywords, $pageNumber));
-    }
-
-    public function sellers()
-    {
-       return Seller::where('positive_feedback_percent', 99.5)->withCount('products')->get()->toArray();
-    }
-
-    public function products()
-    {
-        return Product::where('seller_id', 1)->with('photos', 'shipping')->get()->toArray();
-    }
-
-    public function test()
-    {
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
         $response = $client->get($url, array(
@@ -45,7 +48,7 @@ class EbayController extends Controller
                 'appid' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
                 'siteid' => '0',
                 'version' => '869',
-                'ItemID' => '302927859899',
+                'ItemID' => $this->itemId,
                 'DestinationCountryCode' => 'US',
                 'DestinationPostalCode' => '20189',
                 'IncludeDetails' => 'true',
@@ -57,7 +60,7 @@ class EbayController extends Controller
 
         foreach ($result->ShippingDetails->ShippingServiceOption as $shipping) {
             $details = new Shipping();
-            $details->product_id = 1;
+            $details->product_id = $this->id;
             $details->name = $shipping->ShippingServiceName;
             $details->cost = $shipping->ShippingServiceCost->Value;
             $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value;
@@ -65,7 +68,7 @@ class EbayController extends Controller
             $details->time_min = $shipping->ShippingTimeMin;
             $details->time_max = $shipping->ShippingTimeMax;
             $details->save();
-            print_r($details."<br/>");
         }
+
     }
 }
