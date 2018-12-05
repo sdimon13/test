@@ -18,7 +18,7 @@ class CreateShippingsTable extends Migration
             $table->integer('product_id');
             $table->string('name');
             $table->integer('cost');
-            $table->integer('additional_cost');
+            $table->integer('additional_cost')->nullable();
             $table->integer('priority');
             $table->integer('time_min');
             $table->integer('time_max');

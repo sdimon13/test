@@ -12,4 +12,9 @@ class Seller extends Model
     {
         return $this->hasMany('App\Models\Ebay\Product');
     }
+
+    public function users()
+    {
+        return $this->belongsToMany('App\User');
+    }
 }

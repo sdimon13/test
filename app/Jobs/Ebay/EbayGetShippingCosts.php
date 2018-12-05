@@ -63,7 +63,7 @@ class EbayGetShippingCosts implements ShouldQueue
             $details->product_id = $this->id;
             $details->name = $shipping->ShippingServiceName;
             $details->cost = $shipping->ShippingServiceCost->Value;
-            $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value;
+            $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value ?? null;
             $details->priority = $shipping->ShippingServicePriority;
             $details->time_min = $shipping->ShippingTimeMin;
             $details->time_max = $shipping->ShippingTimeMax;

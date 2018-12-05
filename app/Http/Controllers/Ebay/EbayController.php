@@ -13,7 +13,7 @@ class EbayController extends Controller
 {
     public function index()
     {
-       //
+       return \Auth::user()->id;
     }
 
     public function findItemsAdvanced()
@@ -21,7 +21,13 @@ class EbayController extends Controller
         $keywords = 'toy';
         $pageNumber = 1;
 
-        dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($keywords, $pageNumber));
+        $userId = \Auth::user()->id;
+        $params = [
+            'userId' => 1,
+            'keywords' => $keywords,
+            'pageNumber' => $pageNumber,
+        ];
+        dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
     }
 
     public function sellers()
@@ -36,36 +42,6 @@ class EbayController extends Controller
 
     public function test()
     {
-        $client = new Client();
-        $url = 'http://open.api.ebay.com/shopping';
-        $response = $client->get($url, array(
-            'query' => array(
-                'callname' => 'GetShippingCosts',
-                'responseencoding' => 'JSON',
-                'appid' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
-                'siteid' => '0',
-                'version' => '869',
-                'ItemID' => '302927859899',
-                'DestinationCountryCode' => 'US',
-                'DestinationPostalCode' => '20189',
-                'IncludeDetails' => 'true',
-                'QuantitySold' => '1',
-            )
-        ));
-        $result = $response->getBody()->getContents();
-        $result = json_decode($result);
-
-        foreach ($result->ShippingDetails->ShippingServiceOption as $shipping) {
-            $details = new Shipping();
-            $details->product_id = 1;
-            $details->name = $shipping->ShippingServiceName;
-            $details->cost = $shipping->ShippingServiceCost->Value;
-            $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value;
-            $details->priority = $shipping->ShippingServicePriority;
-            $details->time_min = $shipping->ShippingTimeMin;
-            $details->time_max = $shipping->ShippingTimeMax;
-            $details->save();
-            print_r($details."<br/>");
-        }
+        dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems('273547548963'));
     }
 }

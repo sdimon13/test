@@ -15,14 +15,16 @@ class CreateProductsTable extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->increments('id');
-            $table->bigInteger('item_id')->unique();
+            $table->bigInteger('item_id')->nullable();
             $table->bigInteger('parent_id')->nullable();
             $table->integer('seller_id');
+            $table->char('sku')->nullable();
             $table->string('title');
-            $table->string('description')->nullable();
+            $table->longText('description')->nullable();
             $table->string('brand')->nullable();
             $table->double('price');
             $table->integer('quantity')->nullable();
+            $table->integer('quantity_sold')->nullable();
             $table->string('global_id');
             $table->integer('category_id');
             $table->string('item_url');
@@ -30,6 +32,7 @@ class CreateProductsTable extends Migration
             $table->string('country');
             $table->double('shipping_cost');
             $table->string('condition_name');
+            $table->boolean('variation')->nullable();
             $table->timestamps();
         });
     }
