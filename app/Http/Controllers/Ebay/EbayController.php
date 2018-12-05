@@ -6,8 +6,6 @@ namespace App\Http\Controllers\Ebay;
 use App\Http\Controllers\Controller;
 use App\Models\Ebay\Product;
 use App\Models\Ebay\Seller;
-use App\Models\Ebay\Shipping;
-use GuzzleHttp\Client;
 
 class EbayController extends Controller
 {
@@ -42,6 +40,6 @@ class EbayController extends Controller
 
     public function test()
     {
-        dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems('273547548963'));
+        dispatch(new \App\Jobs\Ebay\EbayGetProductInfo(1));
     }
 }
