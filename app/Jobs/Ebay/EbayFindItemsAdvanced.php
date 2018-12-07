@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Ebay;
 
+use App\Models\Ebay\Keyword;
 use App\Models\Ebay\Photo;
 use App\Models\Ebay\Product;
 use App\Models\Ebay\Seller;
@@ -24,7 +25,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
 
     public $tries = 2;
 
-    protected $userId = 1;
+    protected $userId;
     protected $keywords;
     protected $pageNumber;
 
@@ -35,7 +36,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
      */
     public function __construct(array $params)
     {
-        Log::info('params: '.json_encode($params,256));
+        Log::info('[Ebay-FindItemsAdvanced] Params: '.json_encode($params,256));
         $this->userId=$params['userId'];
         $this->pageNumber=$params['pageNumber'];
         $this->keywords=$params['keywords'];
@@ -93,6 +94,12 @@ class EbayFindItemsAdvanced implements ShouldQueue
         $entriesPerPage = $paginationOutput->entriesPerPage[0]; //Количество товаров на странице
         $totalPages = $paginationOutput->totalPages[0]; //Всего страниц
         $totalEntries = $paginationOutput->totalEntries[0]; // Всего товаров
+
+        $keyword = Keyword::updateOrCreate(
+            ['name' => $this->keywords],
+            ['total_products' => $totalEntries]
+        );
+
         if ($pageNumber < $totalPages) {
             $params = [
                 'userId' => $this->userId,
@@ -104,14 +111,17 @@ class EbayFindItemsAdvanced implements ShouldQueue
 
         foreach($ar->searchResult[0]->item as $item) {
 
+            if (strpos($item->viewItemURL[0], '?var=' ) !== false && strpos($item->viewItemURL[0], '?var=0' ) === false) {
+                continue;
+            }
+
             $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
             if (Seller::where('user_name', $sellerInfo->sellerUserName[0])->count()) {
-                $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])
-                    ->update([
-                        'feedback_score' => $sellerInfo->feedbackScore[0],
-                        'positive_feedback_percent' => $sellerInfo->positiveFeedbackPercent[0],
-                        'top_rated_seller' => $sellerInfo->topRatedSeller[0],
-                    ]);
+                $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
+                $seller->feedback_score = $sellerInfo->feedbackScore[0];
+                $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
+                $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
+                $seller->save();
             } else {
                 $seller = new Seller();
                 $seller->user_name = $sellerInfo->sellerUserName[0];
@@ -120,37 +130,24 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
                 $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
                 $seller->save();
-                $seller->users()->attach($this->userId);
+                $seller->refresh();
+                $seller->users()->syncWithoutDetaching([$this->userId]);
                 dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name));
             }
 
-            /*if ('true' == $item->isMultiVariationListing[0]){
-                $child = explode('?var=', $item->viewItemURL[0]);
-                if ($child[1] == '0') {
-                    $child = null;
-                    $itemId = $item->itemId[0];
-                } else {
-                    $itemId = $child[1];
-                }
-            } else {
-                $itemId = $item->itemId[0];
-            }*/
             $itemId = $item->itemId[0];
             if(Product::where('item_id', $itemId)->count()) {
-                $product = Product::where('item_id', $itemId)->update([
-                    'title' => $item->title[0],
-                    'price' => $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__,
-                    'category_id' => $item->primaryCategory[0]->categoryId[0],
-                    'item_url' => $item->viewItemURL[0],
-                    'shipping_cost' => $item->shippingInfo[0]->shippingServiceCost[0]->__value__,
-                ]);
+                $product = Product::where('item_id', $itemId)->first();
+                $product->title = $item->title[0];
+                $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
+                $product->category_id = $item->primaryCategory[0]->categoryId[0];
+                $product->item_url = $item->viewItemURL[0];
+                $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
+                $product->save();
+                $product->refresh();
             } else {
                 $product = new Product();
-                $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
                 $product->item_id = $itemId;
-                /*if (isset($child[1])) {
-                    $product->parent_id = $item->itemId[0];
-                }*/
                 $product->seller_id = $seller->id;
                 $product->title = $item->title[0];
                 $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
@@ -162,22 +159,18 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
                 $product->condition_name = $item->condition[0]->conditionDisplayName[0];
                 $product->variation = $item->isMultiVariationListing[0] === 'true'? true: false;
+                $product->main_photo = 'http://galleryplus.ebayimg.com/ws/web/'.$product->item_id.'_1_1_1.jpg';
                 $product->save();
                 $product->refresh();
+                if($product->id % 20 == 0) {
+                    $numMin = $product->id - 19;
+                    $itemIds = range($numMin, $product->id);
+                    dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems($itemIds));
+                }
+                dispatch(new \App\Jobs\Ebay\EbayGetProductInfo($product->id));
                 dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->id, $product->item_id));
             }
-
-            $product = Product::where('item_id', $itemId)->first();
-            if(Photo::where('product_id', $product->id)->count()) {
-                $photo = Photo::where('product_id', $product->id)->first();
-            } else {
-                $photo = new Photo();
-            }
-            $photo->product_id = $product->id;
-            $photo->large = $item->galleryInfoContainer[0]->galleryURL[0]->__value__;
-            $photo->medium = $item->galleryInfoContainer[0]->galleryURL[1]->__value__;
-            $photo->small = $item->galleryInfoContainer[0]->galleryURL[2]->__value__;
-            $photo->save();
+            $product->keywords()->syncWithoutDetaching([$keyword->id]);
         }
     }
 }

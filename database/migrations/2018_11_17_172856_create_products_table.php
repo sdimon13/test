@@ -32,6 +32,7 @@ class CreateProductsTable extends Migration
             $table->string('country');
             $table->double('shipping_cost');
             $table->string('condition_name');
+            $table->string('main_photo')->nullable();
             $table->boolean('variation')->nullable();
             $table->timestamps();
         });

@@ -37,7 +37,7 @@ class EbayGetShippingCosts implements ShouldQueue
      */
     public function handle()
     {
-        Log::info('Item: '.$this->itemId);
+        Log::info('[EBay-GetShippingCosts] Item: '.$this->itemId);
 
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
@@ -65,8 +65,8 @@ class EbayGetShippingCosts implements ShouldQueue
             $details->cost = $shipping->ShippingServiceCost->Value;
             $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value ?? null;
             $details->priority = $shipping->ShippingServicePriority;
-            $details->time_min = $shipping->ShippingTimeMin;
-            $details->time_max = $shipping->ShippingTimeMax;
+            $details->time_min = $shipping->ShippingTimeMin ?? null;
+            $details->time_max = $shipping->ShippingTimeMax ?? null;
             $details->save();
         }
 

@@ -20,8 +20,8 @@ class CreateShippingsTable extends Migration
             $table->integer('cost');
             $table->integer('additional_cost')->nullable();
             $table->integer('priority');
-            $table->integer('time_min');
-            $table->integer('time_max');
+            $table->integer('time_min')->nullable();
+            $table->integer('time_max')->nullable();
             $table->timestamps();
         });
     }

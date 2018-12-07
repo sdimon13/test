@@ -10,4 +10,14 @@ class Product extends Model
     {
         return $this->hasMany('App\Models\Ebay\Photo');
     }
+
+    public function shippings()
+    {
+        return $this->hasMany('App\Models\Ebay\Shipping');
+    }
+
+    public function keywords()
+    {
+        return $this->belongsToMany('App\Models\Ebay\Keyword');
+    }
 }

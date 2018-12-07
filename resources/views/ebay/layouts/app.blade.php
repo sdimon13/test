@@ -50,7 +50,10 @@
                             </li>
                         @else
                             <li class="nav-item dropdown">
-                                <a class="nav-link" href="{{ action('Ebay\EbayController@index') }}">Ebay</a>
+                                <a class="nav-link" href="{{ action('Ebay\EbayController@sellers') }}">Продавцы</a>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link" href="{{ action('Ebay\EbayController@products') }}">Товары</a>
                             </li>
                             <li class="nav-item dropdown">
                                 <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>

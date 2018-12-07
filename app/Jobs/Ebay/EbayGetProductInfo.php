@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Ebay;
 
+use App\Models\Ebay\Photo;
 use App\Models\Ebay\Product;
 use Illuminate\Bus\Queueable;
 use Illuminate\Queue\SerializesModels;
@@ -37,7 +38,6 @@ class EbayGetProductInfo implements ShouldQueue
         $product = Product::select('item_url')->find($this->id);
         $link = $product->item_url;
         $link = str_replace('ebay.com', 'ebay.co.uk', $link);
-        info('ProductId: '.$this->id.' Link: '.$link);
         $html = file_get_contents($link);
 
         $crawler = new Crawler(null, $link);
@@ -46,11 +46,22 @@ class EbayGetProductInfo implements ShouldQueue
         $attributes = $crawler->filter('div.itemAttr')->text();
         if (preg_match("|Brand:\s*([^\s]+)|i", $attributes, $matches)) {
             $brand = $matches[1];
-            info('Brand: '.$brand);
-            $seller = Product::where('id', $this->id)
-                ->update([
-                    'brand' => $brand,
-                ]);
+            $product = Product::where('id', $this->id)->first();
+            $product->brand = $brand;
+            $product->save();
+            $product->refresh();
+
+            info('[Ebay-GetProductInfo] ProductId: '.$this->id.' Link: '.$link.' Brand: '.$brand);
+        }
+        $photos = $crawler->filter('#vi_main_img_fs > ul > li img')->each(function (Crawler $node, $i) {
+            return str_replace('s-l64','s-l1000', $node->attr('src'));
+        });
+
+        foreach ($photos as $photoLink) {
+            $photo = Photo::firstOrCreate(
+                ['product_id' => $product->id],
+                ['photo' => $photoLink]
+            );
         }
     }
 }
