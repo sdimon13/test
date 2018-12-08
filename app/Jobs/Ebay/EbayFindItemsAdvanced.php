@@ -66,7 +66,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'itemFilter(0).paramName' => 'Currency',
                 'itemFilter(0).paramValue' => 'USD',
                 'itemFilter(1).name' => 'MaxPrice',
-                'itemFilter(1).value' => '70.00',
+                'itemFilter(1).value' => '20.00',
                 'itemFilter(1).paramName' => 'Currency',
                 'itemFilter(1).paramValue' => 'USD',
                 'itemFilter(2).name' => 'FreeShippingOnly',
@@ -95,24 +95,28 @@ class EbayFindItemsAdvanced implements ShouldQueue
         $totalPages = $paginationOutput->totalPages[0]; //Всего страниц
         $totalEntries = $paginationOutput->totalEntries[0]; // Всего товаров
 
+        Log::info('[Ebay-FindItemsAdvanced] entriesPerPage: '.$entriesPerPage);
+
         $keyword = Keyword::updateOrCreate(
             ['name' => $this->keywords],
             ['total_products' => $totalEntries]
         );
 
-        if ($pageNumber < $totalPages) {
+        if ($pageNumber < $totalPages && $pageNumber < 100) {
             $params = [
                 'userId' => $this->userId,
                 'keywords' => $this->keywords,
                 'pageNumber' => $this->pageNumber+1,
             ];
-            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
+            //dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
         }
 
-        foreach($ar->searchResult[0]->item as $item) {
-
+        foreach($ar->searchResult[0]->item as $key => $item) {
+            Log::info('[Ebay-FindItemsAdvanced] Key: '.$key.' Item: '.json_encode($item,256));
+            $productUrl = $item->viewItemURL[0];
             if (strpos($item->viewItemURL[0], '?var=' ) !== false && strpos($item->viewItemURL[0], '?var=0' ) === false) {
-                continue;
+               $productUrlVariation = explode('?var=0', $item->viewItemURL[0]);
+               $productUrl = $productUrlVariation[0];
             }
 
             $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
@@ -137,15 +141,17 @@ class EbayFindItemsAdvanced implements ShouldQueue
 
             $itemId = $item->itemId[0];
             if(Product::where('item_id', $itemId)->count()) {
+                Log::info('[Ebay-FindItemsAdvanced] Product update: '.$itemId);
                 $product = Product::where('item_id', $itemId)->first();
                 $product->title = $item->title[0];
-                $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
+                //$product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
                 $product->category_id = $item->primaryCategory[0]->categoryId[0];
-                $product->item_url = $item->viewItemURL[0];
+                $product->item_url = $productUrl;
                 $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
                 $product->save();
                 $product->refresh();
             } else {
+                Log::info('[Ebay-FindItemsAdvanced] Product new: '.$itemId);
                 $product = new Product();
                 $product->item_id = $itemId;
                 $product->seller_id = $seller->id;
@@ -153,7 +159,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
                 $product->global_id = $item->globalId[0];
                 $product->category_id = $item->primaryCategory[0]->categoryId[0];
-                $product->item_url = $item->viewItemURL[0];
+                $product->item_url = $productUrl;
                 $product->location = $item->location[0];
                 $product->country = $item->country[0];
                 $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;

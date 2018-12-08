@@ -22,7 +22,7 @@ class CreateProductsTable extends Migration
             $table->string('title');
             $table->longText('description')->nullable();
             $table->string('brand')->nullable();
-            $table->double('price');
+            $table->double('price')->nullable();
             $table->integer('quantity')->nullable();
             $table->integer('quantity_sold')->nullable();
             $table->string('global_id');
