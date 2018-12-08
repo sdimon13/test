@@ -8,6 +8,7 @@ use App\Models\Ebay\Keyword;
 use App\Models\Ebay\Photo;
 use App\Models\Ebay\Product;
 use App\Models\Ebay\Seller;
+use GuzzleHttp\Client;
 use Symfony\Component\DomCrawler\Crawler;
 
 class EbayController extends Controller
@@ -47,8 +48,9 @@ class EbayController extends Controller
 
     public function test()
     {
-        $this->itemIds = array_diff($this->itemIds, array('', NULL, false));
-        $productIds = Product::find($this->itemIds)->implode('item_id', ',');
+        $itemIds = [2,5,8];
+        $itemIds = array_diff($itemIds, array('', NULL, false));
+        $productIds = Product::find($itemIds)->implode('item_id', ',');
         info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
@@ -59,7 +61,7 @@ class EbayController extends Controller
                 'appid' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
                 'siteid' => '0',
                 'version' => '967',
-                'ItemID' => '123175711024,172771667580',
+                'ItemID' => $productIds,
                 'includeSelector' => 'Details, Variations, TextDescription',
             )
         ));
@@ -74,6 +76,7 @@ class EbayController extends Controller
                 $product->quantity_sold = $item->QuantitySold;
                 $product->sku = $item->SKU ?? null;
                 $product->save();
+                $productTitle = $product->title;
                 if (isset($item->Variations) && count($item->Variations->Variation)) {
                     foreach ($item->Variations->Variation as $variation) {
                         $variationName = '(';
@@ -83,8 +86,17 @@ class EbayController extends Controller
                             }
                             $variationName .= $value->Name . ':';
                             $variationName .= $value->Value[0];
+                            foreach ($item->Variations->Pictures as $variationPictures) {
+                                if ($variationPictures->VariationSpecificName == $value->Name) {
+                                    foreach ($variationPictures->VariationSpecificPictureSet as $pictureSet) {
+                                        if ($pictureSet->VariationSpecificValue == $value->Value[0]) {
+                                            $pictures = $pictureSet->PictureURL;
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        $variationName = $product->title . ' ' . $variationName . ')';
+                        $variationName = $productTitle . ' ' . $variationName . ')';
 
                         if (Product::where('title', $variationName)->count()) {
                             $product = Product::where('title', $variationName)->update([
@@ -112,6 +124,13 @@ class EbayController extends Controller
                             $child->variation = null;
                             $child->save();
                             $child->refresh();
+
+                            foreach ($pictures as $picture) {
+                                $photo = new Photo();
+                                $photo->product_id = $child->id;
+                                $photo->photo = $picture;
+                                $photo->save();
+                            }
                         }
                     }
                 }

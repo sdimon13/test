@@ -2,6 +2,7 @@
 
 namespace App\Jobs\Ebay;
 
+use App\Models\Ebay\Photo;
 use App\Models\Ebay\Product;
 use GuzzleHttp\Client;
 use Illuminate\Bus\Queueable;
@@ -34,7 +35,7 @@ class EbayGetMultipleItems implements ShouldQueue
     public function handle()
     {
         $this->itemIds = array_diff($this->itemIds, array('', NULL, false));
-        $productIds = Product::find($this->itemIds)->implode('item_id', ',');
+        $productIds = Product::whereNull('parent_id')->find($this->itemIds)->implode('item_id', ',');
         info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
@@ -60,6 +61,8 @@ class EbayGetMultipleItems implements ShouldQueue
                 $product->quantity_sold = $item->QuantitySold;
                 $product->sku = $item->SKU ?? null;
                 $product->save();
+                $productTitle = $product->title;
+                $pictures =[];
                 if (isset($item->Variations) && count($item->Variations->Variation)) {
                     foreach ($item->Variations->Variation as $variation) {
                         $variationName = '(';
@@ -69,8 +72,22 @@ class EbayGetMultipleItems implements ShouldQueue
                             }
                             $variationName .= $value->Name . ':';
                             $variationName .= $value->Value[0];
+                            if (isset($item->Variations->Pictures) && count($item->Variations->Pictures)) {
+                                foreach ($item->Variations->Pictures as $variationPictures) {
+                                    if ($variationPictures->VariationSpecificName == $value->Name) {
+
+                                        foreach ($variationPictures->VariationSpecificPictureSet as $pictureSet) {
+                                            if ($pictureSet->VariationSpecificValue == $value->Value[0]) {
+                                                if (isset($pictureSet->PictureURL)) {
+                                                    $pictures = $pictureSet->PictureURL;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        $variationName = $product->title . ' ' . $variationName . ')';
+                        $variationName = $productTitle . ' ' . $variationName . ')';
 
                         if (Product::where('title', $variationName)->count()) {
                             $product = Product::where('title', $variationName)->update([
@@ -98,6 +115,15 @@ class EbayGetMultipleItems implements ShouldQueue
                             $child->variation = null;
                             $child->save();
                             $child->refresh();
+
+                            if (count($pictures)) {
+                                foreach ($pictures as $picture) {
+                                    $photo = new Photo();
+                                    $photo->product_id = $child->id;
+                                    $photo->photo = $picture;
+                                    $photo->save();
+                                }
+                            }
                         }
                     }
                 }

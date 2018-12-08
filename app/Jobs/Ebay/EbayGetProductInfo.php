@@ -35,7 +35,8 @@ class EbayGetProductInfo implements ShouldQueue
      */
     public function handle()
     {
-        $product = Product::select('item_url')->find($this->id);
+        info('[Ebay-GetProductInfo] Product id: '.$this->id);
+        $product = Product::find($this->id);
         $link = $product->item_url;
         $link = str_replace('ebay.com', 'ebay.co.uk', $link);
         $html = file_get_contents($link);
