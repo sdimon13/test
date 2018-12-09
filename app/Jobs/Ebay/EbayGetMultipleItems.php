@@ -61,7 +61,7 @@ class EbayGetMultipleItems implements ShouldQueue
                     continue;
                 }
                 $product = Product::where('item_id', $item->ItemID)->first();
-                $product->description = $item->Description;
+                $product->description = $item->Description ?? null;
                 $product->quantity = $item->Quantity;
                 $product->quantity_sold = $item->QuantitySold;
                 $product->sku = $item->SKU ?? null;
@@ -107,7 +107,7 @@ class EbayGetMultipleItems implements ShouldQueue
                             $child->seller_id = $product->seller_id;
                             $child->sku = $variation->SKU ?? null;
                             $child->title = $variationName;
-                            $child->description = $product->description;
+                            $child->description = $product->description ?? null;
                             $child->price = $variation->StartPrice->Value;
                             $child->quantity = $variation->Quantity;
                             $child->quantity_sold = $variation->SellingStatus->QuantitySold;
