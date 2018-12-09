@@ -58,17 +58,18 @@ class EbayGetShippingCosts implements ShouldQueue
         $result = $response->getBody()->getContents();
         $result = json_decode($result);
 
-        foreach ($result->ShippingDetails->ShippingServiceOption as $shipping) {
-            $details = new Shipping();
-            $details->product_id = $this->id;
-            $details->name = $shipping->ShippingServiceName;
-            $details->cost = $shipping->ShippingServiceCost->Value;
-            $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value ?? null;
-            $details->priority = $shipping->ShippingServicePriority;
-            $details->time_min = $shipping->ShippingTimeMin ?? null;
-            $details->time_max = $shipping->ShippingTimeMax ?? null;
-            $details->save();
+        if (isset($result->ShippingDetails->ShippingServiceOption)) {
+            foreach ($result->ShippingDetails->ShippingServiceOption as $shipping) {
+                $details = new Shipping();
+                $details->product_id = $this->id;
+                $details->name = $shipping->ShippingServiceName;
+                $details->cost = $shipping->ShippingServiceCost->Value;
+                $details->additional_cost = $shipping->ShippingServiceAdditionalCost->Value ?? null;
+                $details->priority = $shipping->ShippingServicePriority;
+                $details->time_min = $shipping->ShippingTimeMin ?? null;
+                $details->time_max = $shipping->ShippingTimeMax ?? null;
+                $details->save();
+            }
         }
-
     }
 }

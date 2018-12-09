@@ -35,7 +35,7 @@ class EbayGetMultipleItems implements ShouldQueue
     public function handle()
     {
         $this->itemIds = array_diff($this->itemIds, array('', NULL, false));
-        $productIds = Product::whereNull('parent_id')->find($this->itemIds)->implode('item_id', ',');
+        $productIds = Product::whereNull('parent_id')->whereNotNull('item_id')->find($this->itemIds)->implode('item_id', ',');
         info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
@@ -55,6 +55,11 @@ class EbayGetMultipleItems implements ShouldQueue
 
         if (isset($result->Item)) {
             foreach ($result->Item as $item) {
+                info('[Ebay-GetMultipleItems] Product Item id: '.$item->ItemID);
+                if (!Product::where('item_id', $item->ItemID)->count()) {
+                    info("\n [Ebay-GetMultipleItems] Product Item id: ".$item->ItemID." not found \n");
+                    continue;
+                }
                 $product = Product::where('item_id', $item->ItemID)->first();
                 $product->description = $item->Description;
                 $product->quantity = $item->Quantity;
@@ -96,6 +101,7 @@ class EbayGetMultipleItems implements ShouldQueue
                                 'quantity_sold' => $variation->SellingStatus->QuantitySold,
                             ]);
                         } else {
+                            $product = Product::where('item_id', $item->ItemID)->first();
                             $child = new Product();
                             $child->parent_id = $product->item_id;
                             $child->seller_id = $product->seller_id;

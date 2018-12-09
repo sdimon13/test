@@ -61,26 +61,32 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'paginationInput.entriesPerPage' => '100',
                 'paginationInput.pageNumber' => $this->pageNumber,
                 'keywords' => $this->keywords,
-                'itemFilter(0).name' => 'MinPrice',
-                'itemFilter(0).value' => '10.00',
-                'itemFilter(0).paramName' => 'Currency',
-                'itemFilter(0).paramValue' => 'USD',
-                'itemFilter(1).name' => 'MaxPrice',
-                'itemFilter(1).value' => '20.00',
+                'itemFilter(0).name' => 'LocatedIn',
+                'itemFilter(0).value' => 'US',
+                'itemFilter(1).name' => 'MinPrice',
+                'itemFilter(1).value' => '10.00',
                 'itemFilter(1).paramName' => 'Currency',
                 'itemFilter(1).paramValue' => 'USD',
-                'itemFilter(2).name' => 'FreeShippingOnly',
-                'itemFilter(2).value' => 'true',
-                'itemFilter(3).name' => 'Condition',
-                'itemFilter(3).value' => '1000',
-                'itemFilter(4).name' => 'MinQuantity',
-                'itemFilter(4).value' => '3',
-                'itemFilter(5).name' => 'FeedbackScoreMin',
-                'itemFilter(5).value' => '300',
-                'itemFilter(6).name' => 'positiveFeedbackPercent',
-                'itemFilter(6).value' => '99.0',
-                'itemFilter(7).name' => 'ReturnsAcceptedOnly',
-                'itemFilter(7).value' => 'true',
+                'itemFilter(2).name' => 'MaxPrice',
+                'itemFilter(2).value' => '35.00',
+                'itemFilter(2).paramName' => 'Currency',
+                'itemFilter(2).paramValue' => 'USD',
+                'itemFilter(3).name' => 'FreeShippingOnly',
+                'itemFilter(3).value' => 'true',
+                'itemFilter(4).name' => 'Condition',
+                'itemFilter(4).value' => '1000',
+                'itemFilter(5).name' => 'MinQuantity',
+                'itemFilter(5).value' => '3',
+                'itemFilter(6).name' => 'FeedbackScoreMin',
+                'itemFilter(6).value' => '300',
+                'itemFilter(7).name' => 'positiveFeedbackPercent',
+                'itemFilter(7).value' => '99.0',
+                'itemFilter(8).name' => 'ReturnsAcceptedOnly',
+                'itemFilter(8).value' => 'true',
+                'itemFilter(9).name' => 'HideDuplicateItems',
+                'itemFilter(9).value' => 'true',
+                'itemFilter(10).name' => 'ListingType',
+                'itemFilter(10).value' => 'FixedPrice',
                 'outputSelector(0)' => 'SellerInfo',
                 'outputSelector(1)' => 'GalleryInfo',
             )
@@ -108,7 +114,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'keywords' => $this->keywords,
                 'pageNumber' => $this->pageNumber+1,
             ];
-            //dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
+            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
         }
 
         foreach($ar->searchResult[0]->item as $key => $item) {
@@ -136,7 +142,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 $seller->save();
                 $seller->refresh();
                 $seller->users()->syncWithoutDetaching([$this->userId]);
-                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name));
+                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name))->onConnection('redis');
             }
 
             $itemId = $item->itemId[0];
@@ -173,7 +179,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                     $itemIds = range($numMin, $product->id);
                     dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems($itemIds));
                 }
-                dispatch(new \App\Jobs\Ebay\EbayGetProductInfo($product->id));
+                dispatch(new \App\Jobs\Ebay\EbayGetProductInfo($product->id))->onConnection('redis');
                 dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->id, $product->item_id));
             }
             $product->keywords()->syncWithoutDetaching([$keyword->id]);
