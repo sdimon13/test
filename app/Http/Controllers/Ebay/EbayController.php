@@ -38,7 +38,11 @@ class EbayController extends Controller
 
     public function sellers()
     {
-       return Seller::where('positive_feedback_percent', 99.5)->withCount('products')->get()->toArray();
+        return view('ebay/sellers', [
+
+            'sellers' => Seller::where('positive_feedback_percent', 99.5)->withCount('products')->paginate(10)
+
+        ]);
     }
 
     public function products()
