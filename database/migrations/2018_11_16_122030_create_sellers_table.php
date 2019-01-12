@@ -16,12 +16,12 @@ class CreateSellersTable extends Migration
         Schema::create('sellers', function (Blueprint $table) {
             $table->increments('id');
             $table->string('user_name')->unique();
-            $table->integer('feedback_score');
-            $table->double('positive_feedback_percent');
+            $table->integer('feedback_score')->index();
+            $table->double('positive_feedback_percent')->index();
             $table->string('feedback_rating_star');
             $table->string('top_rated_seller');
-            $table->string('country')->nullable();
-            $table->timestamp('date_reg')->nullable();
+            $table->string('country')->nullable()->index();
+            $table->timestamp('date_reg')->nullable()->index();
             $table->timestamps();
         });
     }

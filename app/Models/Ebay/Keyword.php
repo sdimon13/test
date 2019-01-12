@@ -6,7 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class Keyword extends Model
 {
-    protected $fillable = ['name', 'total_products'];
+    protected $fillable = [
+        'name',
+        'total_products',
+        'min_price',
+        'max_price',
+        'feedback_score_min',
+        'feedback_score_max'
+    ];
 
     public function users()
     {

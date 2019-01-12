@@ -45,7 +45,7 @@ class EbayGetShippingCosts implements ShouldQueue
             'query' => array(
                 'callname' => 'GetShippingCosts',
                 'responseencoding' => 'JSON',
-                'appid' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
+                'appid' => env('SECURITY_APPNAME'),
                 'siteid' => '0',
                 'version' => '869',
                 'ItemID' => $this->itemId,

@@ -27,7 +27,11 @@ class EbayFindItemsAdvanced implements ShouldQueue
 
     protected $userId;
     protected $keywords;
-    protected $pageNumber;
+    protected $pageNumber = 1;
+    protected $minPrice = 10.00;
+    protected $maxPrice = 70.00;
+    protected $feedbackScoreMin = 300;
+    protected $feedbackScoreMax = 999999999;
 
     /**
      * Create a new job instance.
@@ -36,14 +40,20 @@ class EbayFindItemsAdvanced implements ShouldQueue
      */
     public function __construct(array $params)
     {
-        Log::info('[Ebay-FindItemsAdvanced] Params: '.json_encode($params,256));
-        $this->userId=$params['userId'];
-        $this->pageNumber=$params['pageNumber'];
-        $this->keywords=$params['keywords'];
+        Log::info('[Ebay-FindItemsAdvanced] Params get: ' . json_encode($params, 256));
+        $this->userId = $params['userId'];
+        $this->pageNumber = $params['pageNumber'];
+        $this->keywords = $params['keywords'];
+        $this->feedbackScoreMin = (integer)$params['feedbackScoreMin'];
+        $this->feedbackScoreMax = (integer)$params['feedbackScoreMax'];
+        $this->minPrice = $params['minPrice'];
+        $this->maxPrice = $params['maxPrice'];
+
     }
 
     /**
      * Execute the job.
+     * Получаем список товаров по ключевому слову
      *
      * @return void
      */
@@ -55,7 +65,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
             'query' => array(
                 'OPERATION-NAME' => 'findItemsAdvanced',
                 'SERVICE-VERSION' => '1.13.0',
-                'SECURITY-APPNAME' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
+                'SECURITY-APPNAME' => env('SECURITY_APPNAME', ''),
                 'RESPONSE-DATA-FORMAT' => 'json',
                 'REST-PAYLOAD' => 'true',
                 'paginationInput.entriesPerPage' => '100',
@@ -64,11 +74,11 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'itemFilter(0).name' => 'LocatedIn',
                 'itemFilter(0).value' => 'US',
                 'itemFilter(1).name' => 'MinPrice',
-                'itemFilter(1).value' => '35.00',
+                'itemFilter(1).value' => $this->minPrice,
                 'itemFilter(1).paramName' => 'Currency',
                 'itemFilter(1).paramValue' => 'USD',
                 'itemFilter(2).name' => 'MaxPrice',
-                'itemFilter(2).value' => '60.00',
+                'itemFilter(2).value' => $this->maxPrice,
                 'itemFilter(2).paramName' => 'Currency',
                 'itemFilter(2).paramValue' => 'USD',
                 'itemFilter(3).name' => 'FreeShippingOnly',
@@ -78,15 +88,17 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'itemFilter(5).name' => 'MinQuantity',
                 'itemFilter(5).value' => '3',
                 'itemFilter(6).name' => 'FeedbackScoreMin',
-                'itemFilter(6).value' => '300',
-                'itemFilter(7).name' => 'positiveFeedbackPercent',
-                'itemFilter(7).value' => '99.0',
-                'itemFilter(8).name' => 'ReturnsAcceptedOnly',
-                'itemFilter(8).value' => 'true',
-                'itemFilter(9).name' => 'HideDuplicateItems',
+                'itemFilter(6).value' => $this->feedbackScoreMin,
+                'itemFilter(7).name' => 'FeedbackScoreMax',
+                'itemFilter(7).value' => $this->feedbackScoreMax,
+                'itemFilter(8).name' => 'positiveFeedbackPercent',
+                'itemFilter(8).value' => '99.0',
+                'itemFilter(9).name' => 'ReturnsAcceptedOnly',
                 'itemFilter(9).value' => 'true',
-                'itemFilter(10).name' => 'ListingType',
-                'itemFilter(10).value' => 'FixedPrice',
+                'itemFilter(10).name' => 'HideDuplicateItems',
+                'itemFilter(10).value' => 'true',
+                'itemFilter(11).name' => 'ListingType',
+                'itemFilter(11).value' => 'FixedPrice',
                 'outputSelector(0)' => 'SellerInfo',
                 'outputSelector(1)' => 'GalleryInfo',
             )
@@ -94,87 +106,94 @@ class EbayFindItemsAdvanced implements ShouldQueue
         $result = $response->getBody()->getContents();
 
         $result = json_decode($result);
-        $ar= $result->findItemsAdvancedResponse[0];
+        $ar = $result->findItemsAdvancedResponse[0];
         $paginationOutput = $ar->paginationOutput[0];
         $pageNumber = $paginationOutput->pageNumber[0]; // Номер страницы
         $entriesPerPage = $paginationOutput->entriesPerPage[0]; //Количество товаров на странице
         $totalPages = $paginationOutput->totalPages[0]; //Всего страниц
         $totalEntries = $paginationOutput->totalEntries[0]; // Всего товаров
 
-        Log::info('[Ebay-FindItemsAdvanced] entriesPerPage: '.$entriesPerPage);
+        Log::info('[Ebay-FindItemsAdvanced] entriesPerPage: ' . $entriesPerPage);
 
+        // Записываем ключевое слово запроса в бд
         $keyword = Keyword::updateOrCreate(
-            ['name' => $this->keywords],
-            ['total_products' => $totalEntries]
+            [
+                'name' => $this->keywords,
+                'min_price' => $this->minPrice,
+                'max_price' => $this->maxPrice,
+                'feedback_score_min' => $this->feedbackScoreMin,
+                'feedback_score_max' => $this->feedbackScoreMax
+            ],
+            [
+                'total_products' => $totalEntries,
+            ]
         );
+        $keyword->users()->syncWithoutDetaching([$this->userId]);
 
+        // Если по нашему запросу больше оодной страницы товаров, созадем задачу на следующую страницу
         if ($pageNumber < $totalPages && $pageNumber < 100) {
             $params = [
-                'userId' => $this->userId,
-                'keywords' => $this->keywords,
-                'pageNumber' => $this->pageNumber+1,
+                'userId'            => $this->userId,
+                'keywords'          => $this->keywords,
+                'pageNumber'        => $this->pageNumber + 1,
+                'minPrice'          => $this->minPrice,
+                'maxPrice'          => $this->maxPrice,
+                'feedbackScoreMin'  => $this->feedbackScoreMin,
+                'feedbackScoreMax'  => $this->feedbackScoreMax,
             ];
             dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
         }
 
-        foreach($ar->searchResult[0]->item as $key => $item) {
-            Log::info('[Ebay-FindItemsAdvanced] Key: '.$key.' Item: '.json_encode($item,256));
+        // Перебираем товары из запроса Макс 100шт.
+        foreach ($ar->searchResult[0]->item as $key => $item) {
+            //Log::info('[Ebay-FindItemsAdvanced] Key: '.$key.' Item: '.json_encode($item,256));
             $productUrl = $item->viewItemURL[0];
-            if (strpos($item->viewItemURL[0], '?var=' ) !== false && strpos($item->viewItemURL[0], '?var=0' ) === false) {
-               $productUrlVariation = explode('?var=0', $item->viewItemURL[0]);
-               $productUrl = $productUrlVariation[0];
+            // Проверяем, является ли товар Вариацией
+            if (strpos($item->viewItemURL[0], '?var=') !== false &&
+                strpos($item->viewItemURL[0], '?var=0') === false) {
+                $productUrlVariation = explode('?var=0', $item->viewItemURL[0]);
+                $productUrl = $productUrlVariation[0];
             }
 
-            $sellerInfo = $item->sellerInfo[0];  //  Информация о продавце
-            if (Seller::where('user_name', $sellerInfo->sellerUserName[0])->count()) {
+            $sellerInfo = $item->sellerInfo[0];
+            // Записываем информацию о продавце
+            // todo updateOrCreate
+            if (is_null($seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first())) {
+                $seller = Seller::create([
+                    'user_name' =>  $sellerInfo->sellerUserName[0],
+                    'feedback_score' =>  $sellerInfo->feedbackScore[0],
+                    'positive_feedback_percent' =>  $sellerInfo->positiveFeedbackPercent[0],
+                    'feedback_rating_star' =>  $sellerInfo->feedbackRatingStar[0],
+                    'top_rated_seller' =>  $sellerInfo->topRatedSeller[0],
+                ]);
+                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($sellerInfo->sellerUserName[0]));
+            } else {
                 $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
                 $seller->feedback_score = $sellerInfo->feedbackScore[0];
                 $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
                 $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
                 $seller->save();
-            } else {
-                $seller = new Seller();
-                $seller->user_name = $sellerInfo->sellerUserName[0];
-                $seller->feedback_score = $sellerInfo->feedbackScore[0];
-                $seller->positive_feedback_percent = $sellerInfo->positiveFeedbackPercent[0];
-                $seller->feedback_rating_star = $sellerInfo->feedbackRatingStar[0];
-                $seller->top_rated_seller = $sellerInfo->topRatedSeller[0];
-                $seller->save();
                 $seller->refresh();
-                $seller->users()->syncWithoutDetaching([$this->userId]);
-                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($seller->user_name))->onConnection('redis');
             }
 
             $itemId = $item->itemId[0];
-            if(Product::where('item_id', $itemId)->count()) {
-                Log::info('[Ebay-FindItemsAdvanced] Product update: '.$itemId);
-                $product = Product::where('item_id', $itemId)->first();
-                $product->title = $item->title[0];
-                //$product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
-                $product->category_id = $item->primaryCategory[0]->categoryId[0];
-                $product->item_url = $productUrl;
-                $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
-                $product->save();
-                $product->refresh();
-            } else {
-                Log::info('[Ebay-FindItemsAdvanced] Product new: '.$itemId);
-                $product = new Product();
-                $product->item_id = $itemId;
-                $product->seller_id = $seller->id;
-                $product->title = $item->title[0];
-                $product->price = $item->sellingStatus[0]->convertedCurrentPrice[0]->__value__;
-                $product->global_id = $item->globalId[0];
-                $product->category_id = $item->primaryCategory[0]->categoryId[0];
-                $product->item_url = $productUrl;
-                $product->location = $item->location[0];
-                $product->country = $item->country[0];
-                $product->shipping_cost = $item->shippingInfo[0]->shippingServiceCost[0]->__value__;
-                $product->condition_name = $item->condition[0]->conditionDisplayName[0];
-                $product->variation = $item->isMultiVariationListing[0] === 'true'? true: false;
-                $product->main_photo = 'http://galleryplus.ebayimg.com/ws/web/'.$product->item_id.'_1_1_1.jpg';
-                $product->save();
-                $product->refresh();
-                if($product->id % 20 == 0) {
+            // Записываем информацию о товаре
+            if (is_null($product = Product::where('item_id', $itemId)->first())) {
+                $product = Product::create([
+                        'item_id' => $itemId,
+                        'seller_id' => $seller->id,
+                        'title' => $item->title[0],
+                        'global_id' => $item->globalId[0],
+                        'category_id' => $item->primaryCategory[0]->categoryId[0],
+                        'item_url' => $productUrl,
+                        'location' => $item->location[0],
+                        'country' => $item->country[0],
+                        'condition_name' => $item->condition[0]->conditionDisplayName[0],
+                        'variation' => $item->isMultiVariationListing[0] === 'true' ? true : false,
+                        'handling_time' => $item->shippingInfo[0]->handlingTime[0],
+                    ]
+                );
+                if ($product->id % 20 == 0) {
                     $numMin = $product->id - 19;
                     $itemIds = range($numMin, $product->id);
                     dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems($itemIds));
@@ -182,6 +201,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 dispatch(new \App\Jobs\Ebay\EbayGetProductInfo($product->id))->onConnection('redis');
                 dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->id, $product->item_id));
             }
+
             $product->keywords()->syncWithoutDetaching([$keyword->id]);
         }
     }

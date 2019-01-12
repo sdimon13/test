@@ -56,6 +56,9 @@
                                 <a class="nav-link" href="{{ action('Ebay\EbayController@products') }}">Товары</a>
                             </li>
                             <li class="nav-item dropdown">
+                                <a class="nav-link" href="{{ action('Ebay\EbayFindItemsController@index') }}">Спарсенные Ключевики</a>
+                            </li>
+                            <li class="nav-item dropdown">
                                 <a id="navbarDropdown" class="nav-link dropdown-toggle" href="#" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" v-pre>
                                     {{ Auth::user()->name }} <span class="caret"></span>
                                 </a>

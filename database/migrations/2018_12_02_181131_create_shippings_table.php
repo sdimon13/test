@@ -15,13 +15,13 @@ class CreateShippingsTable extends Migration
     {
         Schema::create('shippings', function (Blueprint $table) {
             $table->increments('id');
-            $table->integer('product_id');
+            $table->integer('product_id')->index();
             $table->string('name');
-            $table->integer('cost');
+            $table->integer('cost')->index();
             $table->integer('additional_cost')->nullable();
             $table->integer('priority');
-            $table->integer('time_min')->nullable();
-            $table->integer('time_max')->nullable();
+            $table->integer('time_min')->nullable()->index();
+            $table->integer('time_max')->nullable()->index();
             $table->timestamps();
         });
     }

@@ -30,6 +30,7 @@ class EbayGetProductInfo implements ShouldQueue
 
     /**
      * Execute the job.
+     * Получаем фото и бренд продукта
      *
      * @return void
      */
@@ -44,6 +45,7 @@ class EbayGetProductInfo implements ShouldQueue
         $crawler = new Crawler(null, $link);
         $crawler->addHtmlContent($html, 'UTF-8');
 
+        // Получаем бренд товара
         $attributes = $crawler->filter('div.itemAttr')->text();
         if (preg_match("|Brand:\s*([^\s]+)|i", $attributes, $matches)) {
             $brand = $matches[1];
@@ -52,11 +54,18 @@ class EbayGetProductInfo implements ShouldQueue
             $product->save();
             $product->refresh();
 
-            info('[Ebay-GetProductInfo] ProductId: '.$this->id.' Link: '.$link.' Brand: '.$brand);
+           // info('[Ebay-GetProductInfo] ProductId: '.$this->id.' Link: '.$link.' Brand: '.$brand);
         }
+        $photos = [];
+        // Получаем список изображений товара
         $photos = $crawler->filter('#vi_main_img_fs > ul > li img')->each(function (Crawler $node, $i) {
             return str_replace('s-l64','s-l1000', $node->attr('src'));
         });
+
+        if (!count($photos)) {
+            $mainPhoto = 'http://galleryplus.ebayimg.com/ws/web/'.$product->item_id.'_1_1_1.jpg';
+            array_unshift($photos, $mainPhoto);
+        }
 
         foreach ($photos as $photoLink) {
             $photo = Photo::firstOrCreate(

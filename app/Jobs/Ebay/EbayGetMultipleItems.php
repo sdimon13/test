@@ -29,13 +29,19 @@ class EbayGetMultipleItems implements ShouldQueue
 
     /**
      * Execute the job.
+     * Получаем цену, кооичество и вариации по идентифиеатору товара ebay
      *
      * @return void
      */
     public function handle()
     {
+        if (is_array($this->itemIds)) {
         $this->itemIds = array_diff($this->itemIds, array('', NULL, false));
         $productIds = Product::whereNull('parent_id')->whereNotNull('item_id')->find($this->itemIds)->implode('item_id', ',');
+        } else {
+        $productIds = $this->itemIds;
+        }
+
         info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
@@ -43,7 +49,7 @@ class EbayGetMultipleItems implements ShouldQueue
             'query' => array(
                 'callname' => 'GetMultipleItems',
                 'responseencoding' => 'JSON',
-                'appid' => 'DmitriyS-SDKOA-PRD-769dbd521-3986ee4d',
+                'appid' => env('SECURITY_APPNAME'),
                 'siteid' => '0',
                 'version' => '967',
                 'ItemID' => $productIds,
@@ -56,18 +62,21 @@ class EbayGetMultipleItems implements ShouldQueue
         if (isset($result->Item)) {
             foreach ($result->Item as $item) {
                 info('[Ebay-GetMultipleItems] Product Item id: '.$item->ItemID);
-                if (!Product::where('item_id', $item->ItemID)->count()) {
+                if (is_null($product = Product::where('item_id', $item->ItemID)->first())) {
                     info("\n [Ebay-GetMultipleItems] Product Item id: ".$item->ItemID." not found \n");
                     continue;
                 }
                 $product = Product::where('item_id', $item->ItemID)->first();
                 $product->description = $item->Description ?? null;
+                $product->price = $item->ConvertedCurrentPrice->Value ?? null;
                 $product->quantity = $item->Quantity;
                 $product->quantity_sold = $item->QuantitySold;
-                $product->sku = $item->SKU ?? null;
                 $product->save();
                 $productTitle = $product->title;
+
                 $pictures =[];
+
+                // Проверяем наличие вариаций
                 if (isset($item->Variations) && count($item->Variations->Variation)) {
                     foreach ($item->Variations->Variation as $variation) {
                         $variationName = '(';
@@ -77,7 +86,8 @@ class EbayGetMultipleItems implements ShouldQueue
                             }
                             $variationName .= $value->Name . ':';
                             $variationName .= $value->Value[0];
-                            if (isset($item->Variations->Pictures) && count($item->Variations->Pictures)) {
+                            if (isset($item->Variations->Pictures)
+                                && count($item->Variations->Pictures)) {
                                 foreach ($item->Variations->Pictures as $variationPictures) {
                                     if ($variationPictures->VariationSpecificName == $value->Name) {
 
@@ -93,41 +103,46 @@ class EbayGetMultipleItems implements ShouldQueue
                             }
                         }
                         $variationName = $productTitle . ' ' . $variationName . ')';
+                        $childId = (int)gmp_strval(gmp_init(substr(md5($variationName),
+                            0, 16), 16), 10);
 
-                        if (Product::where('title', $variationName)->count()) {
-                            $product = Product::where('title', $variationName)->update([
-                                'price' => $variation->StartPrice->Value,
-                                'quantity' => $variation->Quantity,
-                                'quantity_sold' => $variation->SellingStatus->QuantitySold,
-                            ]);
-                        } else {
+                        // Обновляем / Добавляем вариации к товару
+                        if (is_null($child = Product::where('item_id', $childId)->first())) {
                             $product = Product::where('item_id', $item->ItemID)->first();
-                            $child = new Product();
+                            $child = $product->replicate();
+                            $child->item_id = $childId;
                             $child->parent_id = $product->item_id;
-                            $child->seller_id = $product->seller_id;
-                            $child->sku = $variation->SKU ?? null;
                             $child->title = $variationName;
-                            $child->description = $product->description ?? null;
                             $child->price = $variation->StartPrice->Value;
                             $child->quantity = $variation->Quantity;
                             $child->quantity_sold = $variation->SellingStatus->QuantitySold;
-                            $child->global_id = $product->global_id;
-                            $child->category_id = $product->category_id;
-                            $child->item_url = $product->item_url;
-                            $child->location = $product->location;
-                            $child->country = $product->country;
-                            $child->shipping_cost = $product->shipping_cost;
-                            $child->condition_name = $product->condition_name;
                             $child->variation = null;
                             $child->save();
                             $child->refresh();
-
+                            info('count'.count($pictures));
                             if (count($pictures)) {
                                 foreach ($pictures as $picture) {
                                     $photo = new Photo();
                                     $photo->product_id = $child->id;
                                     $photo->photo = $picture;
                                     $photo->save();
+                                }
+                            }
+                        } else {
+                            $product = Product::where('item_id', $childId)->update([
+                                'price' => $variation->StartPrice->Value,
+                                'quantity' => $variation->Quantity,
+                                'quantity_sold' => $variation->SellingStatus->QuantitySold,
+                            ]);
+                            if ($child = Product::where('item_id', $childId)->doesntHave('photos')->count()) {
+                                $child = Product::where('item_id', $childId)->first();
+                                if (count($pictures)) {
+                                    foreach ($pictures as $picture) {
+                                        $photo = new Photo();
+                                        $photo->product_id = $child->id;
+                                        $photo->photo = $picture;
+                                        $photo->save();
+                                    }
                                 }
                             }
                         }
