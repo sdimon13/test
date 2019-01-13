@@ -37,7 +37,7 @@ class EbayGetShippingCosts implements ShouldQueue
      */
     public function handle()
     {
-        Log::info('[EBay-GetShippingCosts] Item: '.$this->itemId);
+       // Log::info('[EBay-GetShippingCosts] Item: '.$this->itemId);
 
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';

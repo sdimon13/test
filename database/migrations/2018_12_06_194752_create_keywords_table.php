@@ -16,6 +16,8 @@ class CreateKeywordsTable extends Migration
         Schema::create('keywords', function (Blueprint $table) {
             $table->increments('id');
             $table->integer('total_products')->nullable()->index();
+            $table->integer('total_pages')->nullable()->index();
+            $table->integer('parsed_pages')->nullable()->index();
             $table->string('name')->index();
             $table->double('min_price')->index()->nullable();
             $table->double('max_price')->index()->nullable();

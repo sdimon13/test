@@ -64,7 +64,7 @@ class EbayFindItemsController extends Controller
         ]);
 
         $keyword->users()->syncWithoutDetaching([$userId]);
-        dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
+        dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params))->onQueue('findItems');;
     }
 
     public function checkCount(Request $request)
@@ -174,7 +174,7 @@ class EbayFindItemsController extends Controller
                 'feedbackScoreMin' => $feedbackScoreMin,
                 'feedbackScoreMax' => $feedbackScoreMax,
             ];
-            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
+            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params))->onQueue('findItems');;
 
             return view('ebay/findItems', [
                 'keywords' => Keyword::whereHas('users', function ($query) use ($request) {
@@ -182,10 +182,5 @@ class EbayFindItemsController extends Controller
                 })->paginate(10)->appends($_GET),
                 ]);
         }
-
-
-
-
-
     }
 }

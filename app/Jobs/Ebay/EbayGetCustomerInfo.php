@@ -40,7 +40,7 @@ class EbayGetCustomerInfo implements ShouldQueue
         $date_reg = $crawler->filter('#member_info .info')->text();
         $country = $crawler->filter('#member_info .mem_loc')->text();
 
-        Log::info('[Ebay-GetCustomerInfo] user_name: '.$this->userName.' date_reg: '.$date_reg. 'country: '.$country);
+        //Log::info('[Ebay-GetCustomerInfo] user_name: '.$this->userName.' date_reg: '.$date_reg. 'country: '.$country);
 
         $seller = Seller::where('user_name', $this->userName)
             ->update([

@@ -59,6 +59,8 @@
                         <th>Мин. количество отзывов</th>
                         <th>Макс. количество отзывов</th>
                         <th>Всего товаров</th>
+                        <th>Всего страниц</th>
+                        <th>Спарсенно страниц</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -71,6 +73,8 @@
                             <td>{{$keyword->feedback_score_min}}</td>
                             <td>{{$keyword->feedback_score_max}}</td>
                             <td>{{$keyword->total_products}}</td>
+                            <td>{{$keyword->total_pages}}</td>
+                            <td>{{$keyword->parsed_pages}}</td>
                         </tr>
                     @empty
                         <tr>

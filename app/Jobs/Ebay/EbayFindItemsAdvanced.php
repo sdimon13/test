@@ -40,7 +40,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
      */
     public function __construct(array $params)
     {
-        Log::info('[Ebay-FindItemsAdvanced] Params get: ' . json_encode($params, 256));
+        //Log::info('[Ebay-FindItemsAdvanced] Params get: ' . json_encode($params, 256));
         $this->userId = $params['userId'];
         $this->pageNumber = $params['pageNumber'];
         $this->keywords = $params['keywords'];
@@ -113,7 +113,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
         $totalPages = $paginationOutput->totalPages[0]; //Всего страниц
         $totalEntries = $paginationOutput->totalEntries[0]; // Всего товаров
 
-        Log::info('[Ebay-FindItemsAdvanced] entriesPerPage: ' . $entriesPerPage);
+       // Log::info('[Ebay-FindItemsAdvanced] entriesPerPage: ' . $entriesPerPage);
 
         // Записываем ключевое слово запроса в бд
         $keyword = Keyword::updateOrCreate(
@@ -126,6 +126,8 @@ class EbayFindItemsAdvanced implements ShouldQueue
             ],
             [
                 'total_products' => $totalEntries,
+                'total_pages' => $totalPages,
+                'page_number' => $pageNumber
             ]
         );
         $keyword->users()->syncWithoutDetaching([$this->userId]);
@@ -141,7 +143,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 'feedbackScoreMin'  => $this->feedbackScoreMin,
                 'feedbackScoreMax'  => $this->feedbackScoreMax,
             ];
-            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params));
+            dispatch(new \App\Jobs\Ebay\EbayFindItemsAdvanced($params))->onQueue('findItems');
         }
 
         // Перебираем товары из запроса Макс 100шт.
@@ -166,7 +168,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
                     'feedback_rating_star' =>  $sellerInfo->feedbackRatingStar[0],
                     'top_rated_seller' =>  $sellerInfo->topRatedSeller[0],
                 ]);
-                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($sellerInfo->sellerUserName[0]));
+                dispatch(new \App\Jobs\Ebay\EbayGetCustomerInfo($sellerInfo->sellerUserName[0]))->onConnection('redis');
             } else {
                 $seller = Seller::where('user_name', $sellerInfo->sellerUserName[0])->first();
                 $seller->feedback_score = $sellerInfo->feedbackScore[0];
@@ -196,10 +198,10 @@ class EbayFindItemsAdvanced implements ShouldQueue
                 if ($product->id % 20 == 0) {
                     $numMin = $product->id - 19;
                     $itemIds = range($numMin, $product->id);
-                    dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems($itemIds));
+                    dispatch(new \App\Jobs\Ebay\EbayGetMultipleItems($itemIds))->onQueue('multipleItems');
                 }
                 dispatch(new \App\Jobs\Ebay\EbayGetProductInfo($product->id))->onConnection('redis');
-                dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->id, $product->item_id));
+                dispatch(new \App\Jobs\Ebay\EbayGetShippingCosts($product->id, $product->item_id))->onQueue('shippingCosts');
             }
 
             $product->keywords()->syncWithoutDetaching([$keyword->id]);
