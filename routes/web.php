@@ -21,8 +21,8 @@ Route::group(['prefix' => 'ebay', 'namespace' => 'Ebay', 'middleware' => 'auth']
     Route::get('products', 'EbayController@products')->name('products');
     Route::get('test', 'EbayController@test');
     Route::get('keywords', 'EbayFindItemsController@index')->name('keywords');
-    Route::get('check', 'EbayFindItemsController@checkCount')->name('checkCount');
-    Route::get('parse', 'EbayFindItemsController@add')->name('parse');
+    Route::post('check', 'EbayFindItemsController@checkCount')->name('checkCount');
+    Route::post('parse', 'EbayFindItemsController@add')->name('parse');
 });
 Auth::routes();
 

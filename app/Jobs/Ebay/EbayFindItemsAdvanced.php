@@ -127,7 +127,7 @@ class EbayFindItemsAdvanced implements ShouldQueue
             [
                 'total_products' => $totalEntries,
                 'total_pages' => $totalPages,
-                'page_number' => $pageNumber
+                'parsed_pages' => $pageNumber
             ]
         );
         $keyword->users()->syncWithoutDetaching([$this->userId]);

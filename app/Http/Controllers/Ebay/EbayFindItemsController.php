@@ -159,8 +159,9 @@ class EbayFindItemsController extends Controller
             return view('ebay/findItems', [
                 'keywords' => Keyword::whereHas('users', function ($query) use ($request) {
                     $query->where('user_id', \Auth::user()->id);
-                })->paginate(10)->appends($_GET),
-                'totalEntries' => $totalEntries]);
+                })->paginate(10),
+                'totalEntries' => $totalEntries,
+                'totalPages' => $totalPages]);
 
 
         } elseif($request->submit == 'send') {
@@ -179,7 +180,7 @@ class EbayFindItemsController extends Controller
             return view('ebay/findItems', [
                 'keywords' => Keyword::whereHas('users', function ($query) use ($request) {
                     $query->where('user_id', \Auth::user()->id);
-                })->paginate(10)->appends($_GET),
+                })->paginate(10),
                 ]);
         }
     }

@@ -9,6 +9,8 @@ class Keyword extends Model
     protected $fillable = [
         'name',
         'total_products',
+        'total_pages',
+        'parsed_pages',
         'min_price',
         'max_price',
         'feedback_score_min',

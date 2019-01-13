@@ -42,7 +42,7 @@ class EbayGetMultipleItems implements ShouldQueue
         $productIds = $this->itemIds;
         }
 
-        info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
+        //info('[Ebay-GetMultipleItems] Product ids: '.json_encode($productIds, 256));
         $client = new Client();
         $url = 'http://open.api.ebay.com/shopping';
         $response = $client->get($url, array(
@@ -61,9 +61,9 @@ class EbayGetMultipleItems implements ShouldQueue
 
         if (isset($result->Item)) {
             foreach ($result->Item as $item) {
-                info('[Ebay-GetMultipleItems] Product Item id: '.$item->ItemID);
+                //info('[Ebay-GetMultipleItems] Product Item id: '.$item->ItemID);
                 if (is_null($product = Product::where('item_id', $item->ItemID)->first())) {
-                    info("\n [Ebay-GetMultipleItems] Product Item id: ".$item->ItemID." not found \n");
+                    //info("\n [Ebay-GetMultipleItems] Product Item id: ".$item->ItemID." not found \n");
                     continue;
                 }
                 $product = Product::where('item_id', $item->ItemID)->first();
@@ -119,7 +119,10 @@ class EbayGetMultipleItems implements ShouldQueue
                             $child->variation = null;
                             $child->save();
                             $child->refresh();
-                            info('count'.count($pictures));
+
+                            $child->keywords()->syncWithoutDetaching([$product->keywords->first()->id]);
+
+                            //info('count'.count($pictures));
                             if (count($pictures)) {
                                 foreach ($pictures as $picture) {
                                     $photo = new Photo();

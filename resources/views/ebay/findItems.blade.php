@@ -7,7 +7,8 @@
             <div class="panel-heading">
                 Товары
             </div>
-            <form action="{{route('checkCount')}}">
+            <form method="POST" action="{{route('checkCount')}}" >
+                @csrf
                 <label for="keywords">Ключевое слово </label>
                 <input type="text" name="keywords" id="keywords" value="{{ app('request')->input('keywords') }}">
 
@@ -27,8 +28,6 @@
 
                 <input type="submit" name="submit" value="check">
                 <input type="submit" name="submit" value="send">
-
-               
             </form>
             <div class="panel-body">
 
@@ -45,7 +44,8 @@
                     @if (isset($totalEntries))
                         <div class="alert alert-danger">
                             <ul>
-                                    <li>{{ $totalEntries }}</li>
+                                <li>Всего страниц: {{ $totalPages }}</li>
+                                <li>Всего товаров: {{ $totalEntries }}</li>
                             </ul>
                         </div>
                     @endif
